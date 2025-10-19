@@ -1,16 +1,20 @@
+import { gemini, createAgent } from "@inngest/agent-kit";
+// import { createAgent, anthropic } from "@inngest/agent-kit";
+
 import { inngest } from "./client";
 
 export const helloWorld = inngest.createFunction(
   { id: "hello-world" },
   { event: "test/hello.world" },
-  async ({ event, step }) => {
+  async ({ event }) => {
+    const codeAgent = createAgent({
+    name: "code-agent", 
+    system: "You are an expert next.js developer who writes clean, efficient, and readable code. You write simple next.js and React code snippets.",
+    model: gemini({ model: "gemini-2.0-flash" })
+    });
 
-    //Imagine this is a download step
-    await step.sleep("wait-a-moment", "30s");
-    //Imagine this is a transcript step
-    await step.sleep("wait-a-moment", "10s");
-    //Imagine this is an summary step
-    await step.sleep("wait-a-moment", "5s");
-    return { message: `Hello ${event.data.email}!` };
+    const { output } = await codeAgent.run('Summarize the following text: ' + event.data.value);
+    
+    return { output };
   },
 );
