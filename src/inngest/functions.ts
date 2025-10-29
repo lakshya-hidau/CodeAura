@@ -152,8 +152,6 @@ export const codeAgentFunction = inngest.createFunction(
     const isError = 
       !result.state.data.summary ||
       Object.keys(result.state.data.files || {}).length === 0;
-
-    // const { output } = await codeAgent.run('Write the following snippets: ' + event.data.value);
     
     const sandboxURL = await step.run("get-sandbox-url", async () => {
       const sandbox = await getSandbox(sandboxId);
@@ -162,29 +160,48 @@ export const codeAgentFunction = inngest.createFunction(
     });
 
     await step.run("save-results", async () => {
+      let projectId = event.data.projectId;
+
+      // ✅ Create one automatically if not provided
+      if (!projectId) {
+        const newProject = await prisma.project.create({
+          data: {
+            name: "Auto-generated Project",
+          },
+        });
+        projectId = newProject.id;
+      }
+
+      const isError =
+        !result.state.data.summary ||
+        Object.keys(result.state.data.files || {}).length === 0;
+
       if (isError) {
         return await prisma.message.create({
           data: {
+            projectId,
             content: "Something went wrong. Please try again.",
             role: "ASSISTANT",
             type: "ERROR",
-          }
+          },
         });
       }
+
       return await prisma.message.create({
         data: {
+          projectId,
           content: result.state.data.summary,
           role: "ASSISTANT",
           type: "RESULT",
           fragment: {
             create: {
               sandboxUrl: sandboxURL,
-              title: "Fragemt",
+              title: "Fragment",
               files: result.state.data.files,
             },
           },
         },
-      })
+      });
     });
 
     return { 
