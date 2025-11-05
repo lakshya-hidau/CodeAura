@@ -5,74 +5,71 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import MessageCard from "./message-card";
 import { MessageForm } from "./message-form";
 import { useEffect, useRef } from "react";
+import { Fragment } from "@/generated/prisma/client";
 
 interface Props {
   projectId: string;
+  activeFragment?: Fragment | null;
+  setActiveFragment?: (fragment: Fragment | null) => void;
 }
 
-export const MessagesContainer = ({ projectId }: Props) => {
+export const MessagesContainer = ({ projectId, activeFragment, setActiveFragment }: Props) => {
   const trpc = useTRPC();
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // ✅ Fetch messages using TRPC + Suspense
-  const { data: messages } = useSuspenseQuery(
-    trpc.message.getMany.queryOptions({ projectId })
-  );
-
-  // Debug: Log all messages
-  useEffect(() => {
-    console.log("=== ALL MESSAGES ===");
-    console.log("Total messages:", messages?.length);
-    messages?.forEach((msg, index) => {
-      console.log(`Message ${index}:`, {
-        id: msg.id,
-        role: msg.role,
-        type: msg.type,
-        content: msg.content?.substring(0, 50) + "...",
-        hasFragment: !!msg.fragment,
-        createdAt: msg.createdAt
-      });
-    });
-  }, [messages]);
+  // ✅ Fetch messages with polling every 2 seconds
+  const { data: messages } = useSuspenseQuery({
+    ...trpc.message.getMany.queryOptions({ projectId }),
+    refetchInterval: 2000, // Poll every 2 seconds
+    refetchIntervalInBackground: false,
+  });
 
   useEffect(() => {
     if (!messages || messages.length === 0) return;
     
-    const lastAssistantMessage = messages.findLast(
-      (message) => message.role === "ASSISTANT"
+    const lastAssistantMessageWithFragment = messages.findLast(
+      (message) => message.role === "ASSISTANT" && !!message.fragment
     );
     
-    console.log("Last assistant message found:", lastAssistantMessage?.id);
-    
-    if (lastAssistantMessage) {
-      // TODO Set active fragment
+    if (lastAssistantMessageWithFragment && setActiveFragment) {
+      setActiveFragment(lastAssistantMessageWithFragment.fragment);
     }
-  }, [messages]);
+  }, [messages, setActiveFragment]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages?.length]);
+
+  // Check if AI is processing
+  const isAIProcessing = messages.length > 0 && messages[messages.length - 1].role === "USER";
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="pt-2 pr-1">
           {messages && messages.length > 0 ? (
-            messages.map((message) => {
-              console.log("Rendering message:", message.id, message.role);
-              return (
+            <>
+              {messages.map((message) => (
                 <MessageCard
                   key={message.id}
                   content={message.content}
                   role={message.role}
                   fragment={message.fragment}
                   createdAt={new Date(message.createdAt)}
-                  isActiveFragment={false}
-                  onFragmentClick={() => {}}
+                  isActiveFragment={activeFragment?.id === message.fragment?.id}
+                  onFragmentClick={(frag) => setActiveFragment?.(frag)}
                   type={message.type}
                 />
-              );
-            })
+              ))}
+              
+              {/* Loading indicator when AI is processing */}
+              {isAIProcessing && (
+                <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
+                  <div className="size-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                  <span>CodeAura is thinking...</span>
+                </div>
+              )}
+            </>
           ) : (
             <div className="flex items-center justify-center h-full text-muted-foreground">
               <p>No messages yet. Start a conversation!</p>
