@@ -26,17 +26,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <TRPCReactProvider>
-      <html lang="en" suppressContentEditableWarning>
-        <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-        >
+    <html lang="en" suppressContentEditableWarning>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        {/* TRPCReactProvider is a client component — keep it inside <body> to avoid
+            wrapping the <html> element with a client component which can cause
+            hydration mismatches. */}
+        <TRPCReactProvider>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
             <Toaster />
             {children}
           </ThemeProvider>
-        </body>
-      </html>
-    </TRPCReactProvider>
+        </TRPCReactProvider>
+      </body>
+    </html>
   );
 }

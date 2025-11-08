@@ -40,8 +40,16 @@ export const MessagesContainer = ({ projectId, activeFragment, setActiveFragment
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages?.length]);
 
-  // Check if AI is processing
-  const isAIProcessing = messages.length > 0 && messages[messages.length - 1].role === "USER";
+  // Check if AI is processing: either last message is the user's message (we're waiting)
+  // or the last message is an assistant placeholder with empty content.
+  const isAIProcessing = (() => {
+    if (!messages || messages.length === 0) return false;
+    const last = messages[messages.length - 1];
+    if (!last) return false;
+    if (last.role === "USER") return true;
+    if (last.role === "ASSISTANT" && (!last.content || last.content.toString().trim() === "")) return true;
+    return false;
+  })();
 
   return (
     <div className="flex flex-col flex-1 min-h-0">

@@ -55,15 +55,25 @@ export const messagesRouter = createTRPCRouter({
             });
 
             console.log(`[create] ✅ Created USER message: ${createdMessage.id}`);
+            // Create an assistant placeholder message so the UI can show an
+            // assistant bubble immediately while the background job runs.
+            const assistantPlaceholder = await prisma.message.create({
+                data: {
+                    projectId: input.projectId,
+                    content: "",
+                    role: "ASSISTANT",
+                    type: "RESULT",
+                },
+            });
 
-            // ⚠️ CRITICAL FIX: projectId MUST be inside data object
             try {
                 await inngest.send({
                     name: "code-agent/run",
                     data: { 
                         value: input.value,
-                        projectId: input.projectId,  // ✅ NOW INSIDE data object
-                        messageId: createdMessage.id
+                        projectId: input.projectId,
+                        messageId: createdMessage.id,
+                        assistantMessageId: assistantPlaceholder.id,
                     },
                 });
                 console.log(`[create] ✅ Inngest event sent successfully\n`);
